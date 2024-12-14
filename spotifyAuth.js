@@ -3,11 +3,12 @@ import dotenv from 'dotenv';
 import express from 'express';
 import open from 'open';
 import fs from 'fs';
+import { log } from './logger.js'; // Centralized logger
 
 dotenv.config();
 
 const app = express();
-const port = 8888;
+const port = process.env.PORT || 8888;
 
 let accessToken = null;
 let refreshToken = null;
@@ -18,25 +19,41 @@ function loadTokens() {
         const tokens = JSON.parse(fs.readFileSync('tokens.json'));
         accessToken = tokens.accessToken;
         refreshToken = tokens.refreshToken;
-        console.log('Loaded saved tokens.');
+        log('Loaded saved tokens.');
     } catch (err) {
-        console.log('No saved tokens found. Starting fresh.');
+        log('No saved tokens found. Starting fresh.');
     }
 }
 
 // Save tokens to file
 function saveTokens() {
     fs.writeFileSync('tokens.json', JSON.stringify({ accessToken, refreshToken }));
+    log('Tokens saved successfully.');
+}
+
+// Validate access token
+async function validateAccessToken() {
+    try {
+        await axios.get('https://api.spotify.com/v1/me', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        log('Access token is valid.');
+    } catch (err) {
+        log('Access token is invalid. Refreshing...');
+        await refreshAccessToken();
+    }
 }
 
 // Redirect user to Spotify authorization URL
 app.get('/login', (req, res) => {
-    const scopes = 'user-modify-playback-state user-read-playback-state';
+    const SPOTIFY_SCOPES = [
+        'user-modify-playback-state',
+        'user-read-playback-state',
+    ].join(' ');
+
     const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 
-    const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${process.env.SPOTIFY_CLIENT_ID}&scope=${encodeURIComponent(
-        scopes
-    )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${process.env.SPOTIFY_CLIENT_ID}&scope=${encodeURIComponent(SPOTIFY_SCOPES)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     res.redirect(authUrl);
 });
 
@@ -62,15 +79,13 @@ app.get('/callback', async (req, res) => {
         saveTokens();
 
         res.send('Authorization successful! You can close this window.');
+        log('Access Token:', accessToken);
+        log('Refresh Token:', refreshToken);
 
-        console.log('Access Token:', accessToken);
-        console.log('Refresh Token:', refreshToken);
-
-        // Shut down the server
-        console.log('Shutting down the authentication server...');
+        log('Shutting down the authentication server...');
         process.exit(0);
     } catch (err) {
-        console.error('Error getting tokens:', err.response?.data || err.message);
+        log('Error getting tokens:', err.response?.data || err.message);
         res.send('Failed to authorize.');
     }
 });
@@ -91,9 +106,12 @@ async function refreshAccessToken() {
 
         accessToken = response.data.access_token;
         saveTokens();
-        console.log('Access token refreshed:', accessToken);
+        log('Access token refreshed:', accessToken);
     } catch (err) {
-        console.error('Error refreshing access token:', err.response?.data || err.message);
+        log('Error refreshing access token:', err.response?.data || err.message);
+        accessToken = null;
+        refreshToken = null;
+        saveTokens();
     }
 }
 
@@ -107,11 +125,12 @@ async function getAccessToken() {
 
 // Start the server only if tokens are missing
 loadTokens();
-
-if (!accessToken || !refreshToken) {
+if (accessToken && refreshToken) {
+    validateAccessToken(); // Validate tokens on load
+} else {
     app.listen(port, () => {
-        console.log(`Server running on http://localhost:${port}`);
-        console.log('Opening browser to authenticate Spotify...');
+        log(`Server running on http://localhost:${port}`);
+        log('Opening browser to authenticate Spotify...');
         open(`http://localhost:${port}/login`);
     });
 }
