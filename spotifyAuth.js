@@ -118,7 +118,6 @@ async function refreshAccessToken() {
 }
 
 // Helper function to get the current access token
-// eslint-disable-next-line no-unused-vars
 async function getAccessToken() {
     if (!accessToken) {
         throw new Error('Access token is not set. Please authenticate first.');
@@ -139,3 +138,6 @@ async function getAccessToken() {
         });
     }
 })();
+
+// Export functions for external use
+export { getAccessToken, refreshAccessToken };
