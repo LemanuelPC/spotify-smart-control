@@ -1,15 +1,27 @@
 {
-  "name": "spotify-automation",
+  "name": "spotify-smart-control",
   "version": "1.0.0",
+  "description": "A smart Spotify controller with video playback detection and automation.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "start-video-detection": "node index2.js",
+    "lint": "eslint .",
+    "test": "echo \"No tests defined\" && exit 1"
   },
   "type": "module",
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "spotify",
+    "automation",
+    "video playback",
+    "tampermonkey"
+  ],
+  "author": "Luis Carvalho <https://github.com/LemanuelPC>",
   "license": "ISC",
-  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LemanuelPC/spotify-smart-control.git"
+  },
   "dependencies": {
     "active-win": "^8.2.1",
     "axios": "^1.7.9",
@@ -17,7 +29,11 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "open": "^10.1.0",
-    "readline": "^1.3.0"
+    "open": "^10.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.13.0"
   }
 }

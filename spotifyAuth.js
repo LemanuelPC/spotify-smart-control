@@ -13,6 +13,11 @@ const port = process.env.PORT || 8888;
 let accessToken = null;
 let refreshToken = null;
 
+// Check required environment variables
+if (!process.env.SPOTIFY_REDIRECT_URI || !process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+    throw new Error('Missing Spotify environment variables. Please check your .env file.');
+}
+
 // Load tokens from file
 function loadTokens() {
     try {
@@ -20,7 +25,7 @@ function loadTokens() {
         accessToken = tokens.accessToken;
         refreshToken = tokens.refreshToken;
         log('Loaded saved tokens.');
-    } catch (err) {
+    } catch {
         log('No saved tokens found. Starting fresh.');
     }
 }
@@ -39,7 +44,7 @@ async function validateAccessToken() {
         });
         log('Access token is valid.');
     } catch (err) {
-        log('Access token is invalid. Refreshing...');
+        log(`Access token is invalid. Refreshing... Error: ${err.message}`);
         await refreshAccessToken();
     }
 }
@@ -85,7 +90,7 @@ app.get('/callback', async (req, res) => {
         log('Shutting down the authentication server...');
         process.exit(0);
     } catch (err) {
-        log('Error getting tokens:', err.response?.data || err.message);
+        log(`Error getting tokens: ${err.message}`);
         res.send('Failed to authorize.');
     }
 });
@@ -109,13 +114,11 @@ async function refreshAccessToken() {
         log('Access token refreshed:', accessToken);
     } catch (err) {
         log('Error refreshing access token:', err.response?.data || err.message);
-        accessToken = null;
-        refreshToken = null;
-        saveTokens();
     }
 }
 
 // Helper function to get the current access token
+// eslint-disable-next-line no-unused-vars
 async function getAccessToken() {
     if (!accessToken) {
         throw new Error('Access token is not set. Please authenticate first.');
@@ -123,16 +126,16 @@ async function getAccessToken() {
     return accessToken;
 }
 
-// Start the server only if tokens are missing
-loadTokens();
-if (accessToken && refreshToken) {
-    validateAccessToken(); // Validate tokens on load
-} else {
-    app.listen(port, () => {
-        log(`Server running on http://localhost:${port}`);
-        log('Opening browser to authenticate Spotify...');
-        open(`http://localhost:${port}/login`);
-    });
-}
-
-export { getAccessToken, refreshAccessToken };
+// Start the server
+(async () => {
+    loadTokens();
+    if (accessToken && refreshToken) {
+        await validateAccessToken();
+    } else {
+        app.listen(port, () => {
+            log(`Server running on http://localhost:${port}`);
+            log('Opening browser to authenticate Spotify...');
+            open(`http://localhost:${port}/login`);
+        });
+    }
+})();
